@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { Task } from './entities/task.entity';
@@ -23,15 +23,25 @@ export class TasksService {
     return newTask;
   }
 
-  findAll(): Task[] {
-    return this.tasks;
+  // findAll(): Task[] {
+  //   return this.tasks;
+  // }
+
+  findAll(status?: string): Task[]{
+
+    if(status){
+      return this.tasks.filter(task => task.status === status);
+    }
+
+    return this.tasks
+
   }
 
   findOne(id: number): Task {
     const  task = this.tasks.find(task => task.id === id);
 
     if(!task){
-      throw new NotFoundException('Task con ID '+ id.toString() + 'no encontrado' );
+      throw new NotFoundException('Task con ID '+ id.toString() + ' no encontrado. verifique que el ID sea correcto' );
     }
     return task;
   }
@@ -42,6 +52,12 @@ export class TasksService {
 
     if(taskIndex === -1){
       throw new NotFoundException('Task con ID '+ id.toString() + ' no encontrado' );
+    }
+
+    if(Object.keys(updateTaskDto).length === 0){
+      throw new BadRequestException(
+        'Debe proporcionar al menos un campo para actualizar'
+      )
     }
 
     const updatedTask: Task = {
@@ -68,4 +84,31 @@ export class TasksService {
     return { message: 'Task con ID '+id.toString() + ' fue eliminado' }
 
   }
+
+  getStats(): {
+  total: number;
+  byStatus: Record<string, number>;
+  created_today: number;
+} {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const stats = {
+    total: this.tasks.length,
+    byStatus: {
+      pending: this.tasks.filter(task => task.status === 'pending').length,
+      'in-progress': this.tasks.filter(task => task.status === 'in-progress').length,
+      completed: this.tasks.filter(task => task.status === 'completed').length
+    },
+    created_today: this.tasks.filter(task => {
+      const taskDate = new Date(task.createdAt);
+      taskDate.setHours(0, 0, 0, 0);
+      return taskDate.getTime() === today.getTime();
+    }).length
+  };
+  
+  return stats;
+}
+
+
 }
